@@ -39,7 +39,7 @@ struct SettingsView: View {
                     if let saveMessage {
                         Text(saveMessage)
                             .font(.footnote)
-                            .foregroundStyle(saveSucceeded ? .secondary : .red)
+                            .foregroundStyle(saveSucceeded ? Color.secondary : Color.red)
                     }
                 } header: {
                     Text("Groq API Key")

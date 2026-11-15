@@ -82,7 +82,7 @@ struct ContentView: View {
                             }
                             .padding()
                         }
-                        .onChange(of: viewModel.messages.count) { _ in
+                        .onChange(of: viewModel.messages.count) { _, _ in
                             if let last = viewModel.messages.last {
                                 withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                             }
@@ -182,7 +182,7 @@ private struct MessageBubble: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(message.role == .user ? Color.accentColor : Color(.secondarySystemBackground))
-                .foregroundStyle(message.role == .user ? .white : .primary)
+                .foregroundStyle(message.role == .user ? Color.white : Color.primary)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
             if message.role == .assistant { Spacer(minLength: 40) }
         }
