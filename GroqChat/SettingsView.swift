@@ -26,12 +26,16 @@ struct SettingsView: View {
                     Button("保存 API Key") {
                         saveSucceeded = KeychainHelper.saveAPIKey(apiKeyInput)
                         saveMessage = saveSucceeded ? "已保存到本机钥匙串。" : "保存失败，请检查 Key 是否为空。"
-                        if saveSucceeded { apiKeyInput = "" }
+                        if saveSucceeded {
+                            apiKeyInput = ""
+                            settings.refreshAPIKeyState()
+                        }
                     }
                     .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     if settings.hasAPIKey {
                         Button("删除已保存的 API Key", role: .destructive) {
                             KeychainHelper.deleteAPIKey()
+                            settings.refreshAPIKeyState()
                             saveMessage = "已删除本机保存的 API Key。"
                             saveSucceeded = true
                         }

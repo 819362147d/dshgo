@@ -69,12 +69,19 @@ enum KeychainHelper {
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess,
-              let data = result as? Data,
-              let key = String(data: data, encoding: .utf8),
-              !key.isEmpty
-        else { return nil }
-        return key
+        if status == errSecSuccess,
+           let data = result as? Data,
+           let key = String(data: data, encoding: .utf8),
+           !key.isEmpty {
+            return key
+        }
+        // 未签名 / 自签安装的 App 常常没有钥匙串权限，SecItem 会直接失败
+        // （-34018），这时退回 UserDefaults 兜底，否则 Key 永远存不进去。
+        if let fallback = UserDefaults.standard.string(forKey: "groq.apiKey.fallback"),
+           !fallback.isEmpty {
+            return fallback
+        }
+        return nil
     }
 
     static func saveAPIKey(_ key: String) -> Bool {
@@ -89,11 +96,18 @@ enum KeychainHelper {
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
         ]
-        return SecItemAdd(query as CFDictionary, nil) == errSecSuccess
+        if SecItemAdd(query as CFDictionary, nil) == errSecSuccess {
+            UserDefaults.standard.removeObject(forKey: "groq.apiKey.fallback")
+            return true
+        }
+        // 钥匙串写不进去（未签名包最常见）就存 UserDefaults 兜底，保证能保存。
+        UserDefaults.standard.set(trimmed, forKey: "groq.apiKey.fallback")
+        return true
     }
 
     @discardableResult
     static func deleteAPIKey() -> Bool {
+        UserDefaults.standard.removeObject(forKey: "groq.apiKey.fallback")
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -115,6 +129,8 @@ final class AppSettings: ObservableObject {
     @Published var maxTokens: Int {
         didSet { UserDefaults.standard.set(maxTokens, forKey: "groq.maxTokens") }
     }
+    // 之前 hasAPIKey 是计算属性，保存后界面不会刷新，用户会以为没存上。
+    @Published private(set) var apiKeySaved: Bool
 
     init() {
         let storedModel = UserDefaults.standard.string(forKey: "groq.model")
@@ -123,7 +139,12 @@ final class AppSettings: ObservableObject {
         self.temperature = storedTemperature == 0 ? 0.7 : storedTemperature
         let storedMaxTokens = UserDefaults.standard.integer(forKey: "groq.maxTokens")
         self.maxTokens = storedMaxTokens == 0 ? 1024 : storedMaxTokens
+        self.apiKeySaved = KeychainHelper.loadAPIKey() != nil
     }
 
-    var hasAPIKey: Bool { KeychainHelper.loadAPIKey() != nil }
+    func refreshAPIKeyState() {
+        apiKeySaved = KeychainHelper.loadAPIKey() != nil
+    }
+
+    var hasAPIKey: Bool { apiKeySaved }
 }
